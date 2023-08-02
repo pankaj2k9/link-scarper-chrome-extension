@@ -1,4 +1,10 @@
-// TODO: background script
+import {
+  setStoredOptions,
+} from '../utils/storage'
+// import browser from "webextension-polyfill";
+
 chrome.runtime.onInstalled.addListener(() => {
-  // TODO: on installed function
+  setStoredOptions({
+    hasAutoOverlay: false,
+  })
 })
