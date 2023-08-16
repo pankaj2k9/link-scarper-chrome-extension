@@ -6,31 +6,37 @@ import './popup.css'
 import {
   getStoredOptions,
   LocalStorageOptions,
+  setStoredOptions,
 } from '../utils/storage'
 import { Messages } from '../utils/messages'
+import browser, { Tabs } from "webextension-polyfill";
 
 const App: React.FC<{}> = () => {
   const [options, setOptions] = useState<LocalStorageOptions | null>(null)
   const [checked, setChecked] = useState<boolean>(false)
 
   useEffect(() => {
-    getStoredOptions().then((options) => setOptions(options))
+    browser.runtime.onMessage.addListener(((message, sender, sendResponse) => {
+      if(message.type === "backgroundScriptMessage") {
+        setChecked(message.data)
+      }
+   }))
+    getStoredOptions().then((options) => {
+      setOptions(options)
+    })
   }, [])
 
 
-  const handleOverlayButtonClick = () => {
-    chrome.tabs.query(
-      {
-        active: true,
-        currentWindow: true,
-      },
-      (tabs) => {
+  const handleOverlayButtonClick = (event:React.ChangeEvent<HTMLInputElement>) => {
+    browser.tabs
+    .query({ active: true, currentWindow: true })
+    .then((tabs: Tabs.Tab[]) => {
         if (tabs.length > 0) {
-          chrome.tabs.sendMessage(tabs[0].id, Messages.TOGGLE_OVERLAY)
-          setChecked(!checked)
-        }
-      }
-    )
+          browser.tabs.sendMessage(tabs[0].id, Messages.TOGGLE_OVERLAY)
+          setStoredOptions({ hasOverlay : !options?.hasOverlay})
+         }
+    });
+
   }
 
   return (
@@ -38,13 +44,10 @@ const App: React.FC<{}> = () => {
       <Grid container justify-content="space-evenly">
         <Grid item>
           <Typography variant="h6"> Show/Hide Sidebar </Typography>
-            <Box py="4px">
                 <Switch
                   checked={checked}
                   onChange={handleOverlayButtonClick}
-                  inputProps={{ 'aria-label': 'controlled' }}
                 />
-            </Box>
         </Grid>
       </Grid>
       <Box height="16px" />

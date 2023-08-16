@@ -1,10 +1,17 @@
+import { Messages } from '../utils/messages';
 import {
   setStoredOptions,
 } from '../utils/storage'
-// import browser from "webextension-polyfill";
+import browser from "webextension-polyfill";
 
-chrome.runtime.onInstalled.addListener(() => {
+browser.runtime.onInstalled.addListener(() => {
   setStoredOptions({
-    hasAutoOverlay: false,
+    hasOverlay: false,
   })
 })
+
+browser.runtime.onMessage.addListener(((message, sender, sendResponse) => {
+   if(message.type === "contentScriptMessage") {
+    browser.runtime.sendMessage({ type: "backgroundScriptMessage", data: message.data });
+   }
+}))

@@ -1,29 +1,32 @@
+import browser from "webextension-polyfill";
 export interface LocalStorage {
     options?: LocalStorageOptions
 }
 
 export interface LocalStorageOptions {
-    hasAutoOverlay: boolean
+    hasOverlay: boolean
 }
 
 export type LocalStorageKeys = keyof LocalStorage
 
-export function setStoredOptions(options: LocalStorageOptions): Promise<void> {
+export async function setStoredOptions(options: LocalStorageOptions): Promise<void> {
     const vals: LocalStorage = {
       options,
     }
-    return new Promise((resolve) => {
-      chrome.storage.local.set(vals, () => {
-        resolve()
-      })
-    })
+    try {
+        await browser.storage.local.set(vals);
+      } catch (error) {
+        console.error('Error saving options:', error);
+      }
   }
 
-  export function getStoredOptions(): Promise<LocalStorageOptions> {
+  export async function getStoredOptions(): Promise<LocalStorageOptions | any> {
     const keys: LocalStorageKeys[] = ['options']
-    return new Promise((resolve) => {
-      chrome.storage.local.get(keys, (res: LocalStorage) => {
-        resolve(res.options)
-      })
-    })
+    try {
+        const options = await browser.storage.local.get(keys);
+        return options;
+      } catch (error) {
+        console.error('Error retrieving options:', error);
+        return null;
+      }
   }

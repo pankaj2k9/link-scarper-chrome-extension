@@ -1,9 +1,13 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import ReactDOM from 'react-dom'
 import { getStoredOptions, LocalStorageOptions } from './../utils/storage'
 import { Messages } from './../utils/messages'
 import './contentScript.css'
 import { Box, Button, Card, CardActions, CardContent, Typography } from '@material-ui/core'
+import browser from "webextension-polyfill";
+import TextField from '@material-ui/core/TextField';
+import SearchIcon from '@material-ui/icons/Search';
+import InputAdornment from '@material-ui/core/InputAdornment';
 
 type Link = {
     text: string;
@@ -14,15 +18,43 @@ const App: React.FC<{}> = () => {
     const [options, setOptions] = useState<LocalStorageOptions | null>(null)
     const [isActive, setIsActive] = useState<boolean>(false)
     const [links, setLinks] = useState<Link[] | null>(null)
+    const [searchQuery, setSearchQuery] = useState<string>('');
+    const [searchResults, setSearchResults] = useState<Link[] | null>(null)
+
+
+    const overlayRef = useRef(null);
+
+    useEffect(() => {
+        if (overlayRef.current) {
+            overlayRef.current.focus()
+        }
+    }, [overlayRef])
 
 
     useEffect(() => {
         getStoredOptions().then((options) => {
             setOptions(options)
-            setIsActive(options.hasAutoOverlay)
+            setIsActive(options.hasOverlay)
             collectAllExternalLinks()
         })
     }, [])
+
+    const handleSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const query = event.target.value;
+        setSearchQuery(query);
+
+        const tempLinks = [...links];
+
+        const filteredData = tempLinks && tempLinks.filter(
+            (item) => item.text.toLowerCase().includes(query.toLowerCase())
+        );
+        setSearchResults(filteredData);
+    };
+
+    const hideOverlayhandler = () => {
+        setIsActive(false)
+        browser.runtime.sendMessage({ type: "contentScriptMessage", data: false });
+    }
 
     const collectAllExternalLinks = () => {
         const localLinks = []
@@ -33,23 +65,21 @@ const App: React.FC<{}> = () => {
             localLinks.push({ text, link })
         }
         setLinks(localLinks)
+        setSearchResults(localLinks)
     }
 
     const handleMessages = (msg: Messages) => {
         if (msg === Messages.TOGGLE_OVERLAY) {
+            browser.runtime.sendMessage({ type: "contentScriptMessage", data: !isActive });
             setIsActive(!isActive)
         }
     }
 
-    const removeOverlay = () => {
-        setIsActive(false)
-    }
 
     useEffect(() => {
-        chrome.runtime.onMessage.addListener(handleMessages)
+        browser.runtime.onMessage.addListener(handleMessages)
         return () => {
-            // clean up event listener, bug fix from: https://www.udemy.com/course/chrome-extension/learn/#questions/14694484/
-            chrome.runtime.onMessage.removeListener(handleMessages)
+            browser.runtime.onMessage.removeListener(handleMessages)
         }
     }, [isActive])
 
@@ -61,11 +91,11 @@ const App: React.FC<{}> = () => {
         return links.map((link: Link, index: number) => {
             return <div key={link?.link + index}>
                 {link?.text ? (<Box component="div" sx={{ p: 2, border: '1px solid grey' }}>
-                    <a href={link?.link}
+                    <a href={link.link}
                         target="_blank"
                         rel="noreferrer"
                     >
-                        {link?.text}
+                        {link.text}
                     </a>
                 </Box>) : null}
             </div>
@@ -75,17 +105,31 @@ const App: React.FC<{}> = () => {
 
 
     return (
-        <>
+        <div ref={overlayRef}>
             {isActive && (
-
                 <Card className="overlayCard">
                     <CardContent style={{ overflow: 'auto', height: "100%" }}>
                         <CardActions>
-                            <Button color="secondary" onClick={removeOverlay}>
-                                <Typography className="weatherCard-body">Hide</Typography>
+                            <Button color="primary" size="large" variant="contained" onClick={hideOverlayhandler}>
+                                Hide
                             </Button>
                         </CardActions>
-                        {links?.length > 0 ? listedLinks(links) : (
+
+                        <TextField
+                            label="Search"
+                            variant="outlined"
+                            value={searchQuery}
+                            onChange={handleSearch}
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <SearchIcon />
+                                    </InputAdornment>
+                                ),
+                            }}
+                            style={{ marginBottom: '16px' }}
+                        />
+                        {searchResults?.length > 0 ? listedLinks(searchResults) : (
                             <Box component="span" sx={{ p: 2, border: '1px solid grey' }}>
                                 <Typography>No external links found </Typography>
                             </Box>)
@@ -93,7 +137,7 @@ const App: React.FC<{}> = () => {
                     </CardContent>
                 </Card>
             )}
-        </>
+        </div>
     )
 }
 

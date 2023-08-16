@@ -1,6 +1,6 @@
 {
   "name": "Link Scraper",
-  "description": "Link scraper chrome extension!",
+  "description": "Link scraperbrowser extension!",
   "version": "1.0.0",
   "manifest_version": 3,
   "icons": {
